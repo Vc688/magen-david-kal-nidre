@@ -44,3 +44,5 @@ and `checkout.session.expired`. Create it in the same mode (test/live) as the ke
 - Variables: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ADMIN_PASSWORD`.
 - **Mount a persistent volume at `/app/data`** so entries, the draw result, and
   admin edits survive redeploys.
+
+Live: https://magen-david-kal-nidre-production.up.railway.app
