@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 
 import { getStripe } from "@/lib/stripe";
-import { getEntries, insertEntry, markEntryPaid, updateEntry } from "@/lib/store";
+import { getEntries, getIgnoredSessionIds, insertEntry, markEntryPaid, updateEntry } from "@/lib/store";
 import type { Entry } from "@/types";
 
 export type SyncResult = {
@@ -78,6 +78,7 @@ function stripeIds(session: Stripe.Checkout.Session) {
  */
 export async function recordPaidSession(session: Stripe.Checkout.Session): Promise<string | undefined> {
   if (session.payment_status !== "paid") return undefined;
+  if ((await getIgnoredSessionIds()).has(session.id)) return undefined;
   const existing = await getEntries();
   const local =
     existing.find((entry) => entry.stripeCheckoutSessionId === session.id) ||
@@ -104,6 +105,7 @@ export async function recordPaidSession(session: Stripe.Checkout.Session): Promi
 export async function syncFromStripe(): Promise<SyncResult> {
   const stripe = getStripe();
   const existing = await getEntries();
+  const ignored = await getIgnoredSessionIds();
   const byId = new Map(existing.map((entry) => [entry.id, entry]));
   const bySession = new Map(
     existing.filter((entry) => entry.stripeCheckoutSessionId).map((entry) => [entry.stripeCheckoutSessionId!, entry])
@@ -112,7 +114,7 @@ export async function syncFromStripe(): Promise<SyncResult> {
   const result: SyncResult = { scanned: 0, added: [], markedPaid: [], alreadyCurrent: 0 };
 
   for await (const session of stripe.checkout.sessions.list({ limit: 100 })) {
-    if (session.metadata?.campaign !== CAMPAIGN || session.payment_status !== "paid") {
+    if (session.metadata?.campaign !== CAMPAIGN || session.payment_status !== "paid" || ignored.has(session.id)) {
       continue;
     }
     result.scanned += 1;

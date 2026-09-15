@@ -263,7 +263,12 @@ export async function updateEntry(
   });
 }
 
-/** Removes an entry entirely (for test purchases). Its ticket numbers stay retired. */
+/**
+ * Removes an entry entirely (for test purchases). Its Stripe session is added
+ * to an ignore list so Sync / the webhook never re-import it. Ticket numbers
+ * stay retired unless no ticketed entries remain, in which case numbering
+ * restarts at #1.
+ */
 export async function deleteEntry(id: string): Promise<void> {
   await withWriteLock(async () => {
     const file = await readEntriesFile();
@@ -272,13 +277,29 @@ export async function deleteEntry(id: string): Promise<void> {
       throw new Error("Entry not found.");
     }
     const [removed] = file.entries.splice(index, 1);
-    const maxRemoved = Math.max(0, ...(removed.ticketNumbers || []));
-    file.lastTicketNumber = Math.max(file.lastTicketNumber || 0, maxRemoved);
+    if (removed.stripeCheckoutSessionId) {
+      file.ignoredSessionIds = Array.from(
+        new Set([...(file.ignoredSessionIds || []), removed.stripeCheckoutSessionId])
+      );
+    }
+    const anyTicketsLeft = file.entries.some((entry) => entry.ticketNumbers?.length);
+    if (anyTicketsLeft) {
+      const maxRemoved = Math.max(0, ...(removed.ticketNumbers || []));
+      file.lastTicketNumber = Math.max(file.lastTicketNumber || 0, maxRemoved);
+    } else {
+      file.lastTicketNumber = 0;
+    }
     if (file.draw?.entryId === id) {
       delete file.draw;
     }
     await writeJson(entriesPath, file);
   });
+}
+
+/** Stripe Checkout session ids whose entries were deleted by an admin. */
+export async function getIgnoredSessionIds(): Promise<Set<string>> {
+  const file = await readEntriesFile();
+  return new Set(file.ignoredSessionIds || []);
 }
 
 /**

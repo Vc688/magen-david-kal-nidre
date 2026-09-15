@@ -109,7 +109,7 @@ export default function AdminDashboard() {
   async function remove(entry: Entry) {
     if (
       !window.confirm(
-        `Delete the entry for ${entry.buyer.name} (${formatMoney(entry.totalAmountCents)})? This is meant for test purchases. It does not refund anything in Stripe, and its ticket numbers are retired, not reused.`
+        `Delete the entry for ${entry.buyer.name} (${formatMoney(entry.totalAmountCents)})? This is meant for test purchases. It does not refund anything in Stripe. Sync from Stripe will not re-import it, and its ticket numbers are retired (numbering restarts at #1 only if no other tickets exist).`
       )
     ) {
       return;

@@ -52,6 +52,8 @@ export type EntriesFile = {
   draw?: DrawResult;
   /** Highest ticket number ever issued, so deleted entries never free up numbers. */
   lastTicketNumber?: number;
+  /** Checkout sessions whose entries an admin deleted; never re-imported. */
+  ignoredSessionIds?: string[];
 };
 
 export type StripeEventsFile = {
