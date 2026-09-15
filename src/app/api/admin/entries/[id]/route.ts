@@ -1,0 +1,33 @@
+import { NextRequest, NextResponse } from "next/server";
+
+import { isAdminRequest } from "@/lib/admin-auth";
+import { updateEntryStatus } from "@/lib/store";
+import type { EntryStatus } from "@/types";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const statuses: EntryStatus[] = ["pending", "paid", "expired", "canceled", "refunded"];
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+  const body = (await request.json()) as { status?: EntryStatus; adminNotes?: string };
+  if (!body.status || !statuses.includes(body.status)) {
+    return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+  }
+  try {
+    const { id } = await params;
+    const entry = await updateEntryStatus(id, body.status, { adminNotes: body.adminNotes });
+    return NextResponse.json({ entry });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not update entry." },
+      { status: 404 }
+    );
+  }
+}
