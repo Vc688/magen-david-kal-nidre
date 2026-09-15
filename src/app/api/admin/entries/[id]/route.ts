@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isAdminRequest } from "@/lib/admin-auth";
-import { updateEntryStatus } from "@/lib/store";
+import { deleteEntry, updateEntryStatus } from "@/lib/store";
 import type { EntryStatus } from "@/types";
 
 export const runtime = "nodejs";
@@ -27,6 +27,26 @@ export async function PATCH(
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not update entry." },
+      { status: 404 }
+    );
+  }
+}
+
+/** Permanently removes an entry (meant for test purchases). Ticket numbers are never reused. */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+  try {
+    const { id } = await params;
+    await deleteEntry(id);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not delete entry." },
       { status: 404 }
     );
   }

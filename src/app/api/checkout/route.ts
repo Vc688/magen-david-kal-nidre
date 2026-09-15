@@ -117,6 +117,8 @@ export async function POST(request: NextRequest) {
       metadata,
       expires_at: entry.expiresAt ? Math.floor(new Date(entry.expiresAt).getTime() / 1000) : undefined,
       payment_intent_data: {
+        // Stripe emails a receipt to this address in live mode regardless of dashboard email settings.
+        receipt_email: entry.buyer.email,
         description: `${content.campaignName} — ${entry.ticketCount} ${entry.ticketCount === 1 ? "ticket" : "tickets"} — ${entry.buyer.name}`,
         metadata
       },

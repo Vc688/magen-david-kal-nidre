@@ -87,10 +87,10 @@ function cleanExpired(entries: Entry[]): boolean {
   return changed;
 }
 
-/** Next unused ticket number across every paid entry (tickets are never reused). */
-function nextTicketNumber(entries: Entry[]): number {
-  let max = 0;
-  for (const entry of entries) {
+/** Next unused ticket number (tickets are never reused, even if an entry is deleted). */
+function nextTicketNumber(file: EntriesFile): number {
+  let max = file.lastTicketNumber || 0;
+  for (const entry of file.entries) {
     for (const n of entry.ticketNumbers || []) {
       if (n > max) max = n;
     }
@@ -98,10 +98,11 @@ function nextTicketNumber(entries: Entry[]): number {
   return max + 1;
 }
 
-function assignTickets(entry: Entry, entries: Entry[]) {
+function assignTickets(entry: Entry, file: EntriesFile) {
   if (entry.ticketNumbers && entry.ticketNumbers.length === entry.ticketCount) return;
-  const start = nextTicketNumber(entries);
+  const start = nextTicketNumber(file);
   entry.ticketNumbers = Array.from({ length: entry.ticketCount }, (_, i) => start + i);
+  file.lastTicketNumber = start + entry.ticketCount - 1;
 }
 
 async function readEntriesFile(): Promise<EntriesFile> {
@@ -180,7 +181,7 @@ export async function insertEntry(entry: Entry): Promise<void> {
       return;
     }
     if (entry.status === "paid") {
-      assignTickets(entry, file.entries);
+      assignTickets(entry, file);
     }
     file.entries.unshift(entry);
     await writeJson(entriesPath, file);
@@ -201,14 +202,14 @@ export async function markEntryPaid(
     stripeCustomerId?: string;
   }
 ): Promise<void> {
-  await updateEntry(id, (entry, entries) => {
+  await updateEntry(id, (entry, file) => {
     entry.status = "paid";
     entry.expiresAt = undefined;
     entry.paidAt = entry.paidAt || nowIso();
     entry.stripeCheckoutSessionId = fields.stripeCheckoutSessionId || entry.stripeCheckoutSessionId;
     entry.stripePaymentIntentId = fields.stripePaymentIntentId || entry.stripePaymentIntentId;
     entry.stripeCustomerId = fields.stripeCustomerId || entry.stripeCustomerId;
-    assignTickets(entry, entries);
+    assignTickets(entry, file);
   });
 }
 
@@ -230,7 +231,7 @@ export async function updateEntryStatus(
   status: EntryStatus,
   fields: { adminNotes?: string } = {}
 ): Promise<Entry> {
-  return updateEntry(id, (entry, entries) => {
+  return updateEntry(id, (entry, file) => {
     entry.status = status;
     if (fields.adminNotes !== undefined) {
       entry.adminNotes = fields.adminNotes;
@@ -240,14 +241,14 @@ export async function updateEntryStatus(
     }
     if (status === "paid") {
       entry.paidAt = entry.paidAt || nowIso();
-      assignTickets(entry, entries);
+      assignTickets(entry, file);
     }
   });
 }
 
 export async function updateEntry(
   id: string,
-  mutate: (entry: Entry, entries: Entry[]) => void
+  mutate: (entry: Entry, file: EntriesFile) => void
 ): Promise<Entry> {
   return withWriteLock(async () => {
     const file = await readEntriesFile();
@@ -255,10 +256,28 @@ export async function updateEntry(
     if (!entry) {
       throw new Error("Entry not found.");
     }
-    mutate(entry, file.entries);
+    mutate(entry, file);
     entry.updatedAt = nowIso();
     await writeJson(entriesPath, file);
     return entry;
+  });
+}
+
+/** Removes an entry entirely (for test purchases). Its ticket numbers stay retired. */
+export async function deleteEntry(id: string): Promise<void> {
+  await withWriteLock(async () => {
+    const file = await readEntriesFile();
+    const index = file.entries.findIndex((candidate) => candidate.id === id);
+    if (index === -1) {
+      throw new Error("Entry not found.");
+    }
+    const [removed] = file.entries.splice(index, 1);
+    const maxRemoved = Math.max(0, ...(removed.ticketNumbers || []));
+    file.lastTicketNumber = Math.max(file.lastTicketNumber || 0, maxRemoved);
+    if (file.draw?.entryId === id) {
+      delete file.draw;
+    }
+    await writeJson(entriesPath, file);
   });
 }
 

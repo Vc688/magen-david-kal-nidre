@@ -10,7 +10,8 @@ import {
   Pencil,
   RefreshCw,
   Save,
-  Search
+  Search,
+  Trash2
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -103,6 +104,26 @@ export default function AdminDashboard() {
     }
     setEntries((current) => current.map((item) => (item.id === id ? data.entry : item)));
     setMessage("Saved.");
+  }
+
+  async function remove(entry: Entry) {
+    if (
+      !window.confirm(
+        `Delete the entry for ${entry.buyer.name} (${formatMoney(entry.totalAmountCents)})? This is meant for test purchases. It does not refund anything in Stripe, and its ticket numbers are retired, not reused.`
+      )
+    ) {
+      return;
+    }
+    setMessage("");
+    const response = await fetch(`/api/admin/entries/${entry.id}`, { method: "DELETE" });
+    const data = await response.json();
+    if (!response.ok) {
+      setMessage(data.error || "Could not delete entry.");
+      return;
+    }
+    setEntries((current) => current.filter((item) => item.id !== entry.id));
+    if (draw?.entryId === entry.id) setDraw(null);
+    setMessage("Entry deleted.");
   }
 
   async function syncFromStripe() {
@@ -338,6 +359,7 @@ export default function AdminDashboard() {
                     entry={entry}
                     isWinner={draw?.entryId === entry.id}
                     onUpdate={update}
+                    onDelete={remove}
                   />
                 ))
               )}
@@ -361,11 +383,13 @@ function AdminMetric({ label, value }: { label: string; value: string }) {
 function EntryCard({
   entry,
   isWinner,
-  onUpdate
+  onUpdate,
+  onDelete
 }: {
   entry: Entry;
   isWinner: boolean;
   onUpdate: (id: string, status: EntryStatus, adminNotes?: string) => Promise<void>;
+  onDelete: (entry: Entry) => Promise<void>;
 }) {
   const [status, setStatus] = useState<EntryStatus>(entry.status);
   const [notes, setNotes] = useState(entry.adminNotes || "");
@@ -416,6 +440,9 @@ function EntryCard({
         <button className="btn btn-primary" onClick={() => onUpdate(entry.id, status, notes)}>
           <Save size={16} />
           Save
+        </button>
+        <button className="icon-button" onClick={() => onDelete(entry)} title="Delete entry (test purchases)" aria-label="Delete entry">
+          <Trash2 size={16} />
         </button>
       </div>
       <p className="order-meta">

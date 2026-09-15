@@ -50,6 +50,8 @@ export type DrawResult = {
 export type EntriesFile = {
   entries: Entry[];
   draw?: DrawResult;
+  /** Highest ticket number ever issued, so deleted entries never free up numbers. */
+  lastTicketNumber?: number;
 };
 
 export type StripeEventsFile = {

@@ -1232,7 +1232,7 @@ input[type="checkbox"] {
 
 .order-controls {
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr) 100px;
+  grid-template-columns: 140px minmax(0, 1fr) 100px 40px;
   gap: 8px;
   align-items: center;
   margin-top: 12px;
@@ -1365,7 +1365,7 @@ input[type="checkbox"] {
   }
 
   .order-controls {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr auto;
   }
 }
 
