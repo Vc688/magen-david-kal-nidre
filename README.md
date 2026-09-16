@@ -56,7 +56,11 @@ Setup (about 5 minutes, no Google Cloud project needed):
    **Anyone**. Authorize when prompted, then copy the Web app URL (ends in `/exec`).
 5. In Railway, add `SHEET_WEBHOOK_URL` = that URL and `SHEET_WEBHOOK_SECRET` =
    the same secret. Railway redeploys automatically.
-6. Open the admin and click **Push to Google Sheet** — the tabs fill in.
+6. Railway redeploys; the sheet fills in on its own within a few seconds of the server starting.
+
+The sheet updates automatically after every change, on every server start,
+and every 10 minutes as a safety net. **Push to Google Sheet** in the admin
+sends it immediately if you ever want to force it.
 
 If you later edit the script, you must **Deploy → Manage deployments → Edit →
 New version** for the change to take effect.
