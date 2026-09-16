@@ -135,7 +135,13 @@ export async function pushToSheet(): Promise<SheetPushResult> {
     try {
       payload = JSON.parse(text);
     } catch {
-      payload = { ok: false, error: `Unexpected response (${response.status}): ${text.slice(0, 120)}` };
+      const looksLikeGoogleLogin = /<!doctype html/i.test(text) && (response.status === 401 || response.status === 403 || /accounts\.google\.com|ServiceLogin/i.test(text));
+      payload = {
+        ok: false,
+        error: looksLikeGoogleLogin
+          ? "Google returned a sign-in page. In Apps Script: Deploy → Manage deployments → edit → set “Who has access” to Anyone (not “Anyone with Google account”), deploy a new version, and use the URL ending in /exec."
+          : `Unexpected response (${response.status}): ${text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160)}`
+      };
     }
     const result: SheetPushResult = {
       ok: response.ok && payload.ok === true,
