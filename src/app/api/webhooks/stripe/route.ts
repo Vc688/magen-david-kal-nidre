@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 
 import { recordPaidSession } from "@/lib/reconcile";
 import { getStripe } from "@/lib/stripe";
+import { schedulePushToSheet } from "@/lib/sheet";
 import { hasProcessedStripeEvent, markCheckoutExpired, markStripeEventProcessed } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       // Marks the entry paid (assigning ticket numbers), or rebuilds it from Stripe if the local file was reset.
-      await recordPaidSession(session);
+      const id = await recordPaidSession(session);
+      if (id) schedulePushToSheet();
     }
 
     if (event.type === "checkout.session.expired") {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/admin-auth";
 import { syncFromStripe } from "@/lib/reconcile";
 import { isStripeConfigured } from "@/lib/stripe";
+import { schedulePushToSheet } from "@/lib/sheet";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export async function POST(request: NextRequest) {
   }
   try {
     const result = await syncFromStripe();
+    if (result.added.length || result.markedPaid.length) schedulePushToSheet();
     return NextResponse.json({ result });
   } catch (error) {
     return NextResponse.json(

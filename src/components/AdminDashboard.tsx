@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Sheet,
   Trash2
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
@@ -27,6 +28,11 @@ type AdminResponse = {
 
 type Tab = "entries" | "content";
 
+type SheetStatus = {
+  configured: boolean;
+  lastPush: { ok: boolean; at: string; tickets: number; entries: number; error?: string } | null;
+};
+
 const statuses: EntryStatus[] = ["paid", "pending", "expired", "canceled", "refunded"];
 
 export default function AdminDashboard() {
@@ -40,6 +46,16 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState("paid");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sheet, setSheet] = useState<SheetStatus | undefined>();
+
+  async function loadSheetStatus() {
+    try {
+      const response = await fetch("/api/admin/sheet", { cache: "no-store" });
+      if (response.ok) setSheet((await response.json()) as SheetStatus);
+    } catch {
+      // status is informational only
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -54,6 +70,7 @@ export default function AdminDashboard() {
       setDraw(data.draw);
       setSettings(data.settings);
       setAuthorized(true);
+      void loadSheetStatus();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load entries.");
     } finally {
@@ -66,6 +83,8 @@ export default function AdminDashboard() {
       void load();
     }, 0);
     return () => window.clearTimeout(timer);
+    // Initial load only — `load` is stable for the component's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function login(event: FormEvent) {
@@ -124,6 +143,26 @@ export default function AdminDashboard() {
     setEntries((current) => current.filter((item) => item.id !== entry.id));
     if (draw?.entryId === entry.id) setDraw(null);
     setMessage("Entry deleted.");
+  }
+
+  async function pushToSheet() {
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/sheet", { method: "POST" });
+      const data = await response.json();
+      const r = data.result as { ok: boolean; tickets: number; entries: number; error?: string };
+      setMessage(
+        r.ok
+          ? `Google Sheet updated: ${r.tickets} tickets, ${r.entries} entries.`
+          : `Google Sheet push failed: ${r.error || "unknown error"}`
+      );
+      await loadSheetStatus();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Push failed.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function syncFromStripe() {
@@ -242,6 +281,19 @@ export default function AdminDashboard() {
             <CloudDownload size={17} />
             Sync from Stripe
           </button>
+          <button
+            className="btn"
+            onClick={pushToSheet}
+            disabled={loading}
+            title={
+              sheet?.configured
+                ? "Rewrite the connected Google Sheet with the current tickets and entries"
+                : "Not connected yet — set SHEET_WEBHOOK_URL and SHEET_WEBHOOK_SECRET (see docs/google-sheet-auditor.gs)"
+            }
+          >
+            <Sheet size={17} />
+            Push to Google Sheet
+          </button>
           <button className="btn" onClick={logout}>
             <LogOut size={17} />
             Logout
@@ -270,6 +322,19 @@ export default function AdminDashboard() {
             <AdminMetric label="Total collected" value={formatMoney(metrics.revenue)} />
             <AdminMetric label="Fees covered by buyers" value={formatMoney(metrics.feesCovered)} />
           </section>
+
+          <p className="muted small sheet-status">
+            <Sheet size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
+            {!sheet
+              ? "Google Sheet: checking…"
+              : !sheet.configured
+                ? "Google Sheet auditor not connected. Add SHEET_WEBHOOK_URL and SHEET_WEBHOOK_SECRET in Railway (setup steps in the README)."
+                : sheet.lastPush
+                  ? sheet.lastPush.ok
+                    ? `Google Sheet auditor connected — last push ${new Date(sheet.lastPush.at).toLocaleString()} (${sheet.lastPush.tickets} tickets).`
+                    : `Google Sheet auditor connected but the last push failed: ${sheet.lastPush.error}`
+                  : "Google Sheet auditor connected — it updates automatically after every change; click Push to Google Sheet to send now."}
+          </p>
 
           <section className="draw-panel">
             <div className="draw-head">

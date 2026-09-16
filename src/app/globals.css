@@ -1046,6 +1046,10 @@ input[type="checkbox"] {
   color: var(--midnight);
 }
 
+.sheet-status {
+  margin: -6px 0 14px;
+}
+
 .draw-panel {
   margin-bottom: 18px;
   padding: 20px;

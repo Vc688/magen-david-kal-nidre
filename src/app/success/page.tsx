@@ -7,6 +7,7 @@ import { fillCopy, getSiteContent } from "@/lib/content";
 import { formatMoney } from "@/lib/money";
 import { recordPaidSession } from "@/lib/reconcile";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import { schedulePushToSheet } from "@/lib/sheet";
 import { getEntryByCheckoutSession } from "@/lib/store";
 import type { Entry } from "@/types";
 
@@ -23,7 +24,8 @@ async function resolveEntry(sessionId?: string): Promise<Entry | undefined> {
   if (entry?.status !== "paid" && isStripeConfigured()) {
     try {
       const session = await getStripe().checkout.sessions.retrieve(sessionId);
-      await recordPaidSession(session);
+      const id = await recordPaidSession(session);
+      if (id) schedulePushToSheet();
       entry = await getEntryByCheckoutSession(sessionId);
     } catch {
       // Leave as-is; the webhook or an admin "Sync from Stripe" will reconcile.

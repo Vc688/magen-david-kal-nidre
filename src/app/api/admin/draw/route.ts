@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { isAdminRequest } from "@/lib/admin-auth";
 import { clearDraw, drawWinner } from "@/lib/store";
+import { schedulePushToSheet } from "@/lib/sheet";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export async function POST(request: NextRequest) {
   }
   try {
     const draw = await drawWinner();
+    schedulePushToSheet();
     return NextResponse.json({ draw });
   } catch (error) {
     return NextResponse.json(
@@ -28,5 +30,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
   await clearDraw();
+  schedulePushToSheet();
   return NextResponse.json({ ok: true });
 }

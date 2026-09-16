@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { isAdminRequest } from "@/lib/admin-auth";
 import { deleteEntry, updateEntryStatus } from "@/lib/store";
+import { schedulePushToSheet } from "@/lib/sheet";
 import type { EntryStatus } from "@/types";
 
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const entry = await updateEntryStatus(id, body.status, { adminNotes: body.adminNotes });
+    schedulePushToSheet();
     return NextResponse.json({ entry });
   } catch (error) {
     return NextResponse.json(
@@ -43,6 +45,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deleteEntry(id);
+    schedulePushToSheet();
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(

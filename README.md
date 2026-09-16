@@ -38,10 +38,33 @@ corepack pnpm dev
 Webhook endpoint `/api/webhooks/stripe` — events `checkout.session.completed`
 and `checkout.session.expired`. Create it in the same mode (test/live) as the key.
 
+## Google Sheet ticket auditor (optional)
+
+The app can mirror every ticket and entry into a Google Sheet after each
+change (payment, delete, status edit, draw) and on demand via the admin's
+**Push to Google Sheet** button. Tabs: **Tickets** (one row per ticket
+number), **Entries**, **Summary** (with an audit check that every sold ticket
+has a number).
+
+Setup (about 5 minutes, no Google Cloud project needed):
+
+1. Create a new Google Sheet.
+2. **Extensions → Apps Script**. Delete the default code and paste the contents
+   of `docs/google-sheet-auditor.gs`.
+3. Change `SECRET` at the top of the script to a long random string.
+4. **Deploy → New deployment → Web app**. Execute as **Me**; who has access:
+   **Anyone**. Authorize when prompted, then copy the Web app URL (ends in `/exec`).
+5. In Railway, add `SHEET_WEBHOOK_URL` = that URL and `SHEET_WEBHOOK_SECRET` =
+   the same secret. Railway redeploys automatically.
+6. Open the admin and click **Push to Google Sheet** — the tabs fill in.
+
+If you later edit the script, you must **Deploy → Manage deployments → Edit →
+New version** for the change to take effect.
+
 ## Deploy (Railway)
 
 - Push to `main`; Railway builds with pnpm.
-- Variables: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ADMIN_PASSWORD`.
+- Variables: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ADMIN_PASSWORD` (+ optional `SHEET_WEBHOOK_URL`, `SHEET_WEBHOOK_SECRET`).
 - **Mount a persistent volume at `/app/data`** so entries, the draw result, and
   admin edits survive redeploys.
 
